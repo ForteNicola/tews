@@ -1,0 +1,95 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>NickBook</title>
+    <style>
+        body { font-family: sans-serif; margin: 0; background: #444; color: #fff; }
+        header { 
+            padding: 15px; position: sticky; top: 0; 
+            background: #444; border-bottom: 2px solid #007AFF; z-index: 100;
+        }
+        .bar { display: flex; background: #eee; border-radius: 10px; padding: 5px; }
+        input { flex: 1; border: none; background: transparent; padding: 10px; font-size: 16px; outline: none; }
+        button { border: none; background: #007AFF; color: white; border-radius: 8px; padding: 0 15px; }
+        
+        #res { padding: 15px; }
+        img { width: 100%; border-radius: 10px; margin: 10px 0; }
+        .sec { font-size: 20px; font-weight: bold; margin-top: 25px; border-bottom: 1px solid #ddd; }
+        .txt { font-size: 17px; line-height: 1.6; margin: 10px 0; }
+        #load { display: none; text-align: center; padding: 20px; color: #007AFF; font-weight: bold; }
+        
+        /* Nasconde le scritte di servizio */
+        .mw-editsection, .infobox, .reference, .noprint { display: none !important; }
+        a { color: #007AFF; text-decoration: none; pointer-events: none; }
+    </style>
+</head>
+<body>
+
+<header>
+    <div class="bar">
+        <input type="text" id="in" placeholder="Scrivi un argomento..." autocomplete="off">
+        <button onclick="go()">CERCA</button>
+    </div>
+</header>
+
+<div id="load">Sto cercando...</div>
+<div id="res">
+    <h1>cerca qualsiasi cosa!</h1>
+    <p class="txt"></p>
+</div>
+
+<script>
+    async function go() {
+        const q = document.getElementById('in').value;
+        const res = document.getElementById('res');
+        const ld = document.getElementById('load');
+
+        if (!q) return;
+        ld.style.display = 'block';
+        res.innerHTML = '';
+
+        // Funzione per pulire il testo dai link e sporcizia
+        const clean = (h) => h.replace(/href=".*?"/g, 'href="#"').replace(/<link.*?>/g, '');
+
+        try {
+            // TENTATIVO 1: Articolo completo
+            const r = await fetch(`https://it.wikipedia.org/api/rest_v1/page/mobile-sections/${encodeURIComponent(q)}`);
+            const d = await r.json();
+            
+            ld.style.display = 'none';
+            let h = `<h1>${d.lead.displaytitle}</h1>`;
+            
+            if (d.lead.image) h += `<img src="${d.lead.image.urls[800]}">`;
+            
+            d.lead.sections.forEach(s => h += `<div class="txt">${s.text}</div>`);
+            
+            if (d.remaining) {
+                d.remaining.sections.forEach(s => {
+                    if (s.line) h += `<div class="sec">${s.line}</div>`;
+                    h += `<div class="txt">${s.text}</div>`;
+                });
+            }
+            res.innerHTML = clean(h);
+
+        } catch (e) {
+            // TENTATIVO 2: Se il primo fallisce, proviamo il sommario semplice
+            try {
+                const r2 = await fetch(`https://it.wikipedia.org/api/rest_v1/page/summary/${encodeURIComponent(q)}`);
+                const d2 = await r2.json();
+                ld.style.display = 'none';
+                res.innerHTML = `<h1>${d2.title}</h1>${d2.thumbnail ? `<img src="${d2.thumbnail.source}">` : ''}<p class="txt">${d2.extract}</p>`;
+            } catch (e2) {
+                ld.style.display = 'none';
+                res.innerHTML = "<h1>Errore</h1><p>Nessun risultato trovato. Riprova con una parola più semplice.</p>";
+            }
+        }
+        window.scrollTo(0,0);
+    }
+
+    document.getElementById('in').addEventListener('keypress', (e) => { if(e.key === 'Enter') go(); });
+</script>
+
+</body>
+</html>
